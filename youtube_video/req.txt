@@ -1,0 +1,10 @@
+youtube-transcript-api
+googletrans
+langchain
+langchain-text-splitters
+cohere
+chromadb
+requests
+pytube
+pandas
+numpy
