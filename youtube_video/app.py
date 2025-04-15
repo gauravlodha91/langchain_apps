@@ -346,7 +346,7 @@ class RAGChatbot:
         try:
             chat_response = self.co.chat(
                 message=query,
-                preamble=f"You are an AI assistant that answers questions based on YouTube video transcripts. Do Not add additional information from Your side. If The provided question does not have context then simple return NO Context Found. Use the following information from YouTube videos to answer the user's question: {context}",
+                preamble=f"You are an AI assistant that answers questions based on YouTube video transcripts. Do Not add additional information from Your side. If The provided question does not have context then simple return No-Context Found. Use the following information from YouTube videos to answer the user's question: {context}",
                 model="command-r",
                 temperature=0.7,
             )
@@ -440,19 +440,19 @@ def main():
             logger.error("Error getting collection stats: %s", e)
             st.error(f"Error getting collection stats: {e}")
     
-    # with st.sidebar:
-    #     st.title("Search Results Scores")
+    with st.sidebar:
+        st.title("Search Results Scores")
         
-    #     if "chat_history" in st.session_state and st.session_state.chat_history:
-    #         last_message = st.session_state.chat_history[-1]
-    #         if last_message["role"] == "assistant" and "sources" in last_message:
-    #             sources = last_message["sources"]
-    #             for i, source in enumerate(sources):
-    #                 st.write(f"**Result {i+1}:**")
-    #                 st.write(f"Video: {source['video_name']}")
-    #                 st.write(f"Author: {source['author']}")
-    #                 st.write(f"Score: {source['score']}")
-    #                 st.write("---")
+        if "chat_history" in st.session_state and st.session_state.chat_history:
+            last_message = st.session_state.chat_history[-1]
+            if last_message["role"] == "assistant" and "sources" in last_message:
+                sources = last_message["sources"]
+                for i, source in enumerate(sources):
+                    st.write(f"**Result {i+1}:**")
+                    st.write(f"Video: {source['video_name']}")
+                    st.write(f"Author: {source['author']}")
+                    st.write(f"Score: {source['score']}")
+                    st.write("---")
     
     # Main tabs
     tab1, tab2 = st.tabs(["Chat with YouTube Videos", "Add YouTube Videos"])
@@ -471,7 +471,7 @@ def main():
                     if message["sources"]:
                         with st.expander("Sources"):
                             for source in message["sources"]:
-                                # st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
+                                st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
                                 st.write(f"Snippet: {source['snippet']}")
                                 st.write(f"Score: {source['score']}")
                                 st.write("---")
@@ -506,12 +506,10 @@ def main():
                     if response_data["sources"]:
                         with st.expander("Sources"):
                             for source in response_data["sources"]:
-                                # st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
+                                st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
                                 st.write(f"Snippet: {source['snippet']}")
                                 st.write(f"Score: {source['score']}")
                                 st.write("---")
-                                
-            ##git added
             
             # Add assistant message to chat history
             st.session_state.chat_history.append({
