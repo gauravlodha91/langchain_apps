@@ -513,6 +513,8 @@ def main():
                                 
             ##git added
             
+            ## git checkout
+            
             # Add assistant message to chat history
             st.session_state.chat_history.append({
                 "role": "assistant",
