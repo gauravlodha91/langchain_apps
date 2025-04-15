@@ -510,6 +510,8 @@ def main():
                                 st.write(f"Snippet: {source['snippet']}")
                                 st.write(f"Score: {source['score']}")
                                 st.write("---")
+                                
+            ##git added
             
             # Add assistant message to chat history
             st.session_state.chat_history.append({
