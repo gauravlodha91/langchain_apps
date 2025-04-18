@@ -28,6 +28,9 @@ API_ENDPOINT = "http://localhost:8000"
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+if "notification" not in st.session_state:
+    st.session_state.notification = None
+
 # Sidebar for configuration
 with st.sidebar:
     st.title("Configuration")
@@ -61,19 +64,26 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Error: {str(e)}")
     
-    # Show collection stats
+    # Show collection stats with refresh button
     st.subheader("Collection Statistics")
-    try:
-        response = requests.get(f"{API_ENDPOINT}/stats")
-        if response.status_code == 200:
-            stats = response.json()
-            st.write(f"Total chunks: {stats.get('total_chunks', 0)}")
-            if stats.get('estimated_videos'):
-                st.write(f"Number of videos: {stats.get('estimated_videos')} (estimated)")
-        else:
-            st.error("Could not retrieve collection stats")
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+    if st.button("Refresh Stats"):
+        st.session_state.stats = None  # Force refresh
+
+    if "stats" not in st.session_state or st.session_state.stats is None:
+        try:
+            response = requests.get(f"{API_ENDPOINT}/stats")
+            if response.status_code == 200:
+                st.session_state.stats = response.json()
+            else:
+                st.session_state.stats = {}
+                st.error("Could not retrieve collection stats")
+        except Exception as e:
+            st.session_state.stats = {}
+            st.error(f"Error: {str(e)}")
+
+    stats = st.session_state.get("stats", {})
+    st.write(f"Total chunks: {stats.get('total_chunks', 0)}")
+    st.write(f"Number of videos: {stats.get('estimated_videos', stats.get('total_videos', 0))}")
 
     # Display source scores for last message if available
     if "chat_history" in st.session_state and st.session_state.chat_history:
@@ -262,9 +272,24 @@ with tab2:
                             display_status_badge(status_data["status"])
                             if status_data["error"]:
                                 st.error(f"Error: {status_data['error']}")
+                                # Show notification if transcript is missing
+                                if (
+                                    status_data["status"] == "failed"
+                                    and (
+                                        "no transcript" in status_data["error"].lower()
+                                        or "could not be processed" in status_data["error"].lower()
+                                    )
+                                ):
+                                    st.session_state.notification = f"Video {video_id}: {status_data['error']}"
                 else:
                     st.info("No videos in processing queue")
             else:
                 st.error(f"Failed to retrieve status: {response.text}")
         except Exception as e:
             st.error(f"Error checking status: {str(e)}")
+
+    # Show notification if set
+    if st.session_state.notification:
+        st.warning(st.session_state.notification)
+        time.sleep(5)
+        st.session_state.notification = None

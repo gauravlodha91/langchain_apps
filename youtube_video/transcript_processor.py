@@ -68,31 +68,24 @@ class YouTubeTranscriptProcessor:
     def get_transcript(self, video_id: str, translate_to_english: bool = True) -> List[Dict[str, Any]]:
         logger.info("Fetching transcript for video ID: %s", video_id)
         try:
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-            
-            # Translate if needed and not in English
-            if translate_to_english:
-                # Check if transcript is already in English
-                sample_text = " ".join([item["text"] for item in transcript_list[:5]])
-                
-                # Use asyncio to handle the async detect method
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                detected_lang = loop.run_until_complete(self.translator.detect(sample_text))
-                
-                if detected_lang.lang != 'en':  # Correctly access the 'lang' attribute
-                    # Translate each segment
-                    for i, segment in enumerate(transcript_list):
-                        try:
-                            translated = self.translator.translate(segment["text"], dest='en')
-                            transcript_list[i]["text"] = translated.text
-                        except Exception as e:
-                            logger.error("Translation error for segment %d: %s", i, e)
-                            # Keep original text if translation fails
-                            pass
-            
-            logger.info("Transcript fetched successfully for video ID: %s", video_id)
-            return transcript_list
+            # Try English first
+            try:
+                transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+                logger.info("Transcript fetched in English for video ID: %s", video_id)
+                return transcript_list
+            except Exception:
+                # Try any available language
+                transcript_info = YouTubeTranscriptApi.list_transcripts(video_id)
+                for transcript in transcript_info:
+                    if transcript.is_translatable:
+                        transcript_list = transcript.fetch()
+                        if translate_to_english:
+                            for item in transcript_list:
+                                item["text"] = self.translator.translate(item["text"], dest="en").text
+                        logger.info("Transcript fetched and translated for video ID: %s", video_id)
+                        return transcript_list
+                logger.warning("No translatable transcript found for video ID: %s", video_id)
+                return []
         except Exception as e:
             logger.error("Error getting transcript for video %s: %s", video_id, e)
             return []
@@ -142,6 +135,7 @@ class YouTubeTranscriptProcessor:
                 "start_time": start_time,
                 "end_time": end_time,
                 "duration": end_time - start_time,
+                "video_id": video_metadata['video_id'],
                 **video_metadata  # Include all video metadata
             }
             processed_chunks.append(processed_chunk)

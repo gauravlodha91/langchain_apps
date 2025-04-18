@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -60,6 +61,25 @@ class VideoStatus(BaseModel):
     status: str
     error: Optional[str] = None
 
+def extract_video_id(url_or_id: str) -> Optional[str]:
+    """
+    Extracts the YouTube video ID from a URL or returns the ID if already valid.
+    Returns None if extraction fails.
+    """
+    url_or_id = url_or_id.strip()
+    # Direct ID
+    if re.match(r"^[\w-]{11}$", url_or_id):
+        return url_or_id
+    # youtube.com/watch?v=...
+    match = re.search(r"(?:v=)([\w-]{11})", url_or_id)
+    if match:
+        return match.group(1)
+    # youtu.be/...
+    match = re.search(r"youtu\.be/([\w-]{11})", url_or_id)
+    if match:
+        return match.group(1)
+    return None
+
 # API routes
 @app.get("/")
 async def root():
@@ -69,6 +89,13 @@ async def root():
 async def get_stats():
     """Get statistics about the indexed videos."""
     stats = get_collection_stats(collection)
+    # Ensure stats contains 'estimated_videos'
+    if "estimated_videos" not in stats:
+        chunks = get_all_chunks(collection)
+        # DEBUG: Print first 3 chunks to check their structure
+        logger.info(f"First 3 chunks: {chunks[:3]}")
+        unique_videos = set(chunk.get("video_id") for chunk in chunks if "video_id" in chunk)
+        stats["estimated_videos"] = len(unique_videos)
     return stats
 
 @app.get("/chunks")
@@ -82,41 +109,55 @@ async def process_videos(request: VideoRequest, background_tasks: BackgroundTask
     """Process and index YouTube videos."""
     if not request.video_ids:
         raise HTTPException(status_code=400, detail="No video IDs provided")
-    
-    # Initialize status for each video
-    for video_id in request.video_ids:
-        video_status[video_id] = {"status": "started", "error": None}
-    
+
+    # Validate and extract video IDs
+    valid_video_ids = []
+    for raw_id in request.video_ids:
+        vid = extract_video_id(raw_id)
+        if vid:
+            valid_video_ids.append(vid)
+            video_status[vid] = {"status": "started", "error": None}
+        else:
+            video_status[raw_id] = {"status": "failed", "error": "Invalid video ID or URL"}
+
+    if not valid_video_ids:
+        raise HTTPException(status_code=400, detail="No valid video IDs found.")
+
     # Create processor with requested settings
     custom_processor = YouTubeTranscriptProcessor(
         chunk_size=request.chunk_size,
         chunk_overlap=request.chunk_overlap
     )
-    
-    # Simplified background task function
+
+    # Background task for processing videos
     def process_videos_background(video_ids):
         for video_id in video_ids:
             try:
                 video_status[video_id]["status"] = "processing"
-                # Process video without using nested event loops
-                success = custom_processor.process_video(collection, video_id)
-                if success:
-                    video_status[video_id]["status"] = "completed"
+                result = custom_processor.process_video(collection, video_id)
+                if isinstance(result, dict) and result.get("success"):
+                    if result.get("chunks", 0) > 0:
+                        video_status[video_id]["status"] = "completed"
+                        video_status[video_id]["error"] = None
+                    else:
+                        video_status[video_id]["status"] = "failed"
+                        video_status[video_id]["error"] = "No transcript found or transcript could not be processed."
                 else:
                     video_status[video_id]["status"] = "failed"
-                    video_status[video_id]["error"] = "Failed to process video"
+                    video_status[video_id]["error"] = result.get("error", "Failed to process video") if isinstance(result, dict) else "Failed to process video"
             except Exception as e:
                 video_status[video_id]["status"] = "failed"
                 video_status[video_id]["error"] = str(e)
                 logger.error(f"Error processing video {video_id}: {str(e)}")
-    
+
     # Start processing in background
-    background_tasks.add_task(process_videos_background, request.video_ids)
-    
+    background_tasks.add_task(process_videos_background, valid_video_ids)
+
     return {
-        "message": f"Processing {len(request.video_ids)} videos in the background",
-        "video_ids": request.video_ids
+        "message": f"Processing {len(valid_video_ids)} videos in the background",
+        "video_ids": valid_video_ids
     }
+
 @app.post("/query")
 async def query(request: QueryRequest):
     """Query the chatbot with a question."""
@@ -139,7 +180,7 @@ async def get_video_status(video_id: str):
     """Get the processing status of a specific video."""
     if video_id not in video_status:
         raise HTTPException(status_code=404, detail="Video ID not found")
-    
+
     return VideoStatus(
         video_id=video_id,
         status=video_status[video_id]["status"],
