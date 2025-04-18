@@ -1,10 +1,22 @@
-youtube-transcript-api
-googletrans
-langchain
-langchain-text-splitters
-cohere
-chromadb
-requests
-pytube
-pandas
-numpy
+# Core dependencies
+streamlit==1.35.0
+fastapi==0.108.0
+uvicorn==0.25.0
+python-dotenv==1.0.0
+pydantic==2.5.2
+
+# RAG and database components
+cohere==4.32
+chromadb==0.4.22
+langchain==0.0.335
+langchain-text-splitters==0.0.1
+
+# YouTube components
+youtube-transcript-api==0.6.1
+pytube==15.0.0
+googletrans==4.0.0-rc1
+
+# Data processing
+pandas==2.1.3
+numpy==1.24.3
+requests==2.31.0
