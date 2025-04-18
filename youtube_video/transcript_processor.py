@@ -128,7 +128,7 @@ class YouTubeTranscriptProcessor:
                 if start_pos <= chunk_end_char and end_pos >= chunk_end_char:
                     end_time = time_data["start"] + time_data.get("duration", 0)
                     break
-            ## check 1
+            ## check w1
             
             processed_chunk = {
                 "chunk_id": f"{video_metadata['video_id']}-{i}",
