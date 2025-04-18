@@ -129,7 +129,7 @@ class YouTubeTranscriptProcessor:
                     end_time = time_data["start"] + time_data.get("duration", 0)
                     break
             
-            
+              
             
             processed_chunk = {
                 "chunk_id": f"{video_metadata['video_id']}-{i}",
