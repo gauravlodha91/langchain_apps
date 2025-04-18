@@ -440,8 +440,8 @@ def main():
             logger.error("Error getting collection stats: %s", e)
             st.error(f"Error getting collection stats: {e}")
     
-    with st.sidebar:
-        st.title("Search Results Scores")
+    # with st.sidebar:
+    #     st.title("Search Results Scores")
         
         if "chat_history" in st.session_state and st.session_state.chat_history:
             last_message = st.session_state.chat_history[-1]
@@ -461,62 +461,66 @@ def main():
     with tab1:
         st.title("Chat with YouTube Videos")
         
-        # Display chat history
-        for message in st.session_state.chat_history:
-            with st.chat_message(message["role"]):
-                st.write(message["content"])
+        # Create a container for the chat interface
+        chat_interface = st.container()
+        
+        with chat_interface:
+            # Display chat history
+            for message in st.session_state.chat_history:
+                with st.chat_message(message["role"]):
+                    st.write(message["content"])
+                    
+                    # Display sources if available
+                    if message["role"] == "assistant" and "sources" in message:
+                        if message["sources"]:
+                            with st.expander("Sources"):
+                                for source in message["sources"]:
+                                    st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
+                                    st.write(f"Snippet: {source['snippet']}")
+                                    st.write(f"Score: {source['score']}")
+                                    st.write("---")
+            
+            # Chat input (always at the bottom)
+            user_query = st.chat_input("Ask a question about the YouTube content...")
+            
+            if user_query:
+                # Add user message to chat history
+                st.session_state.chat_history.append({
+                    "role": "user",
+                    "content": user_query
+                })
                 
-                # Display sources if available
-                if message["role"] == "assistant" and "sources" in message:
-                    if message["sources"]:
-                        with st.expander("Sources"):
-                            for source in message["sources"]:
-                                st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
-                                st.write(f"Snippet: {source['snippet']}")
-                                st.write(f"Score: {source['score']}")
-                                st.write("---")
-        
-        # Chat input
-        user_query = st.chat_input("Ask a question about the YouTube content...")
-        
-        if user_query:
-            # Add user message to chat history
-            st.session_state.chat_history.append({
-                "role": "user",
-                "content": user_query
-            })
-            
-            # Display user message
-            with st.chat_message("user"):
-                st.write(user_query)
-            
-            # Get response from chatbot
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    # Search for similar chunks
-                    search_results = st.session_state.chatbot.search_similar_chunks(user_query, n_results=5)
-                    
-                    # Generate response
-                    response_data = st.session_state.chatbot.generate_response(user_query, search_results)
-                    
-                    # Display response
-                    st.write(response_data["response"])
-                    
-                    # Display sources in an expander
-                    if response_data["sources"]:
-                        with st.expander("Sources"):
-                            for source in response_data["sources"]:
-                                st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
-                                st.write(f"Snippet: {source['snippet']}")
-                                st.write(f"Score: {source['score']}")
-                                st.write("---")
-            
-            # Add assistant message to chat history
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": response_data["response"],
-                "sources": response_data["sources"]
-            })
+                # Display user message
+                with st.chat_message("user"):
+                    st.write(user_query)
+                
+                # Get response from chatbot
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        # Search for similar chunks
+                        search_results = st.session_state.chatbot.search_similar_chunks(user_query, n_results=5)
+                        
+                        # Generate response
+                        response_data = st.session_state.chatbot.generate_response(user_query, search_results)
+                        
+                        # Display response
+                        st.write(response_data["response"])
+                        
+                        # Display sources in an expander
+                        if response_data["sources"]:
+                            with st.expander("Sources"):
+                                for source in response_data["sources"]:
+                                    st.markdown(f"**[{source['video_name']}]({source['timestamp_link']})** by {source['author']}")
+                                    st.write(f"Snippet: {source['snippet']}")
+                                    st.write(f"Score: {source['score']}")
+                                    st.write("---")
+                
+                # Add assistant message to chat history
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "content": response_data["response"],
+                    "sources": response_data["sources"]
+                })
     
     # Tab 2: Add YouTube Videos
     with tab2:
